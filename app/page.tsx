@@ -36,7 +36,8 @@ import { buildDayIcs, buildWeeklyIcs, downloadIcs } from "@/lib/ics";
 import {
   ensurePermission,
   maybeFireAlert,
-  playChime,
+  buzzPhone,
+  playSchoolBell,
   registerSW,
   requestWakeLock,
   showAlert,
@@ -167,8 +168,8 @@ export default function HomePage() {
         const title = `${state.period.name} ends in ${settings.minutes} min`;
         const body = `${formatTime12h(state.period.end)} · pack up and get ready to move`;
         showAlert(title, body);
-        if (settings.sound) playChime();
-        if (settings.vibrate && navigator.vibrate) navigator.vibrate([180, 80, 180, 80, 240]);
+        if (settings.sound) void playSchoolBell();
+        if (settings.vibrate) buzzPhone();
         setToast(title);
       }
     }
@@ -202,16 +203,16 @@ export default function HomePage() {
       }
     }
     persistSettings({ ...settings, enabled: on });
-    if (on) setToast(`Alerts on — ${settings.minutes} minutes before class ends`);
+    if (on) setToast(`Alerts on — school bell + buzz ${settings.minutes} min before class ends`);
   }
 
   async function testAlert() {
     const permission = await ensurePermission();
     setPerm(permission);
-    await showAlert("Period 4 ends in 5 min", "This is a test. Your phone should buzz.");
-    if (settings.sound) playChime();
-    if (settings.vibrate && navigator.vibrate) navigator.vibrate([180, 80, 180]);
-    setToast("Test alert sent");
+    await showAlert("Period 4 ends in 5 min", "This is a test. You should hear a school bell and feel a buzz.");
+    await playSchoolBell();
+    const buzzed = buzzPhone();
+    setToast(buzzed ? "Test sent — bell + vibration" : "Test sent — bell (this phone has no vibrate API)");
   }
 
   function addTodayToCalendar() {
@@ -351,7 +352,7 @@ export default function HomePage() {
             <div className="text-xs text-white/45">
               {settings.enabled
                 ? perm === "granted"
-                  ? "Phone banner + sound while this app is open"
+                  ? "Loud school bell + vibration while this app is open"
                   : "Notifications blocked — use calendar alerts"
                 : "Off"}
             </div>
@@ -360,7 +361,7 @@ export default function HomePage() {
         </div>
 
         {settings.enabled && (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
             <label className="rounded-xl bg-black/25 p-2 text-white/60">
               Minutes
               <select
@@ -379,7 +380,13 @@ export default function HomePage() {
               onClick={() => persistSettings({ ...settings, sound: !settings.sound })}
               className={`rounded-xl p-2 ${settings.sound ? "bg-gold/15 text-gold" : "bg-black/25 text-white/50"}`}
             >
-              Sound {settings.sound ? "on" : "off"}
+              Bell {settings.sound ? "on" : "off"}
+            </button>
+            <button
+              onClick={() => persistSettings({ ...settings, vibrate: !settings.vibrate })}
+              className={`rounded-xl p-2 ${settings.vibrate ? "bg-gold/15 text-gold" : "bg-black/25 text-white/50"}`}
+            >
+              Vibrate {settings.vibrate ? "on" : "off"}
             </button>
             <button
               onClick={() => persistSettings({ ...settings, keepAwake: !settings.keepAwake })}
