@@ -1,5 +1,5 @@
-const CACHE = "egan-bells-v1";
-const ASSETS = ["/", "/manifest.json", "/icon.png"];
+const CACHE = "egan-bells-v2";
+const ASSETS = ["/", "/manifest.json", "/icon.png", "/school-bell.wav"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

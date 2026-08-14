@@ -35,12 +35,15 @@ import {
 import { buildDayIcs, buildWeeklyIcs, downloadIcs } from "@/lib/ics";
 import {
   ensurePermission,
+  fireHapticsAndBell,
   maybeFireAlert,
-  buzzPhone,
   playSchoolBell,
+  preloadBell,
   registerSW,
   requestWakeLock,
   showAlert,
+  unlockAudio,
+  buzzPhone,
 } from "@/lib/notify";
 
 const DAY_CHIPS: { id: PresetId; label: string }[] = [
@@ -123,8 +126,14 @@ export default function HomePage() {
         (navigator as Navigator & { standalone?: boolean }).standalone === true
     );
     registerSW();
+    void preloadBell();
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock);
     const tick = setInterval(() => setNow(new Date()), 250);
-    return () => clearInterval(tick);
+    return () => {
+      clearInterval(tick);
+      window.removeEventListener("pointerdown", unlock);
+    };
   }, []);
 
   useEffect(() => {
@@ -167,9 +176,9 @@ export default function HomePage() {
       if (maybeFireAlert(todayKey, state.period, state.remainingMs, settings)) {
         const title = `${state.period.name} ends in ${settings.minutes} min`;
         const body = `${formatTime12h(state.period.end)} · pack up and get ready to move`;
-        showAlert(title, body);
-        if (settings.sound) void playSchoolBell();
         if (settings.vibrate) buzzPhone();
+        if (settings.sound) playSchoolBell();
+        void showAlert(title, body);
         setToast(title);
       }
     }
@@ -193,6 +202,8 @@ export default function HomePage() {
 
   async function enableAlerts(on: boolean) {
     if (on) {
+      unlockAudio();
+      buzzPhone();
       const permission = await ensurePermission();
       setPerm(permission);
       if (permission !== "granted") {
@@ -207,12 +218,11 @@ export default function HomePage() {
   }
 
   async function testAlert() {
+    const buzzed = fireHapticsAndBell();
+    setToast(buzzed ? "Test sent — bell + vibration" : "Test sent — if it did not buzz, tap again (Android needs the tap)");
     const permission = await ensurePermission();
     setPerm(permission);
-    await showAlert("Period 4 ends in 5 min", "This is a test. You should hear a school bell and feel a buzz.");
-    await playSchoolBell();
-    const buzzed = buzzPhone();
-    setToast(buzzed ? "Test sent — bell + vibration" : "Test sent — bell (this phone has no vibrate API)");
+    void showAlert("Period 4 ends in 5 min", "This is a test. You should hear a school bell and feel a buzz.");
   }
 
   function addTodayToCalendar() {
@@ -398,7 +408,10 @@ export default function HomePage() {
         )}
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={testAlert} className="rounded-xl border border-white/10 py-2 text-xs text-white/70">
+          <button
+            onPointerDown={testAlert}
+            className="rounded-xl border border-white/10 py-2 text-xs text-white/70"
+          >
             Test alert
           </button>
           <button onClick={() => setHelpOpen(true)} className="rounded-xl border border-white/10 py-2 text-xs text-white/70">
@@ -490,6 +503,12 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
     <button
       role="switch"
       aria-checked={on}
+      onPointerDown={() => {
+        if (!on) {
+          unlockAudio();
+          buzzPhone();
+        }
+      }}
       onClick={() => onChange(!on)}
       className={`relative h-8 w-14 rounded-full transition ${on ? "bg-gold" : "bg-white/15"}`}
     >
@@ -604,8 +623,8 @@ function HelpSheet({
           </li>
           <li>
             <span className="font-medium text-white">2. Allow notifications.</span> Status:{" "}
-            <span className="text-gold">{perm}</span>. In-app alerts fire while the app is open (keep screen on during
-            school).
+            <span className="text-gold">{perm}</span>. Then tap <span className="text-white">Test alert</span> — Android
+            only vibrates during that tap. Keep the app open (and screen on) during school.
           </li>
           <li>
             <span className="font-medium text-white">3. For alerts even if the app is closed:</span> add the calendar
