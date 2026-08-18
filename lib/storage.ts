@@ -4,6 +4,7 @@ const SPECIALS_KEY = "egan-bells-specials-v1";
 const SETTINGS_KEY = "egan-bells-settings-v1";
 const FIRED_KEY = "egan-bells-fired-v1";
 const RUN_AS_KEY = "egan-bells-run-as-v1";
+const EXPANDED_KEY = "egan-bells-expanded-v1";
 
 export interface SpecialDay {
   id: string;
@@ -130,4 +131,12 @@ export function loadRunAs(today: string): PresetId | "auto" {
 
 export function saveRunAs(today: string, preset: PresetId | "auto") {
   writeStore(RUN_AS_KEY, JSON.stringify({ date: today, preset }));
+}
+
+export function loadExpanded(): boolean {
+  return readStore(EXPANDED_KEY) === "1";
+}
+
+export function saveExpanded(open: boolean) {
+  writeStore(EXPANDED_KEY, open ? "1" : "0");
 }

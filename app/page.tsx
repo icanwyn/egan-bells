@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ClockTools from "@/components/ClockTools";
 import SpecialEditor from "@/components/SpecialEditor";
 import {
   DaySchedule,
@@ -28,9 +29,11 @@ import {
   AlertSettings,
   DEFAULT_SETTINGS,
   SpecialDay,
+  loadExpanded,
   loadRunAs,
   loadSettings,
   loadSpecials,
+  saveExpanded,
   saveRunAs,
   saveSettings,
   saveSpecials,
@@ -122,12 +125,14 @@ export default function HomePage() {
   const [toast, setToast] = useState<string | null>(null);
   const [perm, setPerm] = useState<NotificationPermission>("default");
   const [standalone, setStandalone] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const wakeRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
     setSpecials(loadSpecials());
     setSettings(loadSettings());
     setRunAs(loadRunAs(dateKey(new Date())));
+    setExpanded(loadExpanded());
     if (typeof Notification !== "undefined") setPerm(Notification.permission);
     setStandalone(
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -227,6 +232,14 @@ export default function HomePage() {
     saveSpecials(next);
   }, []);
 
+  const toggleExpanded = useCallback(() => {
+    setExpanded((open) => {
+      const next = !open;
+      saveExpanded(next);
+      return next;
+    });
+  }, []);
+
   async function enableAlerts(on: boolean) {
     if (on) {
       unlockAudio();
@@ -282,20 +295,26 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 pb-16 pt-4">
-      <header className="mb-5 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <img src="/viking.png" alt="" className="h-10 w-10 object-contain" />
+      <header className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img src="/viking.png" alt="" className="h-8 w-8 object-contain" />
           <div>
-            <div className="text-[11px] uppercase tracking-[0.28em] text-gold">Egan Jr. High</div>
-            <h1 className="text-2xl font-semibold leading-none">Bells</h1>
+            <h1 className="text-lg font-semibold leading-none">Bells</h1>
+            <div className="text-[11px] text-white/40">{prettyDate(now)}</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-white/80">{prettyDate(now)}</div>
-          <div className="font-mono text-xs text-white/45">{formatClock(now)}</div>
+        <div className="flex items-center gap-2">
+          <div className="hidden text-right font-mono text-[11px] text-white/40 sm:block">{formatClock(now)}</div>
+          <button
+            onClick={toggleExpanded}
+            className="rounded-full bg-gold/15 px-3 py-1.5 text-xs font-medium text-gold"
+          >
+            {expanded ? "Hide" : "Schedule"}
+          </button>
         </div>
       </header>
 
+      {expanded && (
       <section className="glass mb-4 rounded-[24px] p-3.5">
         <label className="block">
           <div className="mb-1.5 flex items-baseline justify-between gap-2">
@@ -336,8 +355,10 @@ export default function HomePage() {
           </p>
         )}
       </section>
+      )}
 
-      <section className="glass relative mb-4 overflow-hidden rounded-[28px] px-5 pb-6 pt-5">
+      <section className="glass relative mb-4 overflow-hidden rounded-[28px] px-5 pb-5 pt-5">
+        {expanded && (
         <div className="mb-3 flex items-center justify-between text-xs">
           <span className="rounded-full bg-gold/15 px-2.5 py-1 font-medium text-gold">
             {resolved.schedule.label}
@@ -351,6 +372,7 @@ export default function HomePage() {
             <span className="hidden max-w-[55%] text-right text-white/40 sm:inline">{resolved.schedule.note}</span>
           )}
         </div>
+        )}
 
         <div className="relative mx-auto grid place-items-center">
           {current && live ? (
@@ -375,7 +397,7 @@ export default function HomePage() {
           )}
         </div>
 
-        {upcoming && (
+        {expanded && upcoming && (
           <div className="mt-2 rounded-2xl bg-black/25 px-4 py-3 text-sm">
             <div className="text-[11px] uppercase tracking-[0.16em] text-white/35">Next</div>
             <div className="flex items-baseline justify-between gap-3">
@@ -393,8 +415,19 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        <ClockTools />
+
+        <button
+          onClick={toggleExpanded}
+          className="mt-3 w-full py-1.5 text-center text-xs text-white/40"
+        >
+          {expanded ? "Hide schedule and alerts" : "Show schedule and alerts"}
+        </button>
       </section>
 
+      {expanded && (
+      <>
       <section className="glass mb-4 rounded-[24px] p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -493,6 +526,8 @@ export default function HomePage() {
           </ul>
         )}
       </section>
+      </>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-40 w-[min(92vw,28rem)] -translate-x-1/2 rounded-2xl bg-gold px-4 py-3 text-center text-sm font-medium text-navy shadow-lg">
