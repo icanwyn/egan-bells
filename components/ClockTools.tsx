@@ -125,11 +125,11 @@ export default function ClockTools() {
   const timerDone = !timerOn && timerLeft === 0 && timerFired.current;
 
   return (
-    <div className="mt-4 rounded-2xl bg-black/25 p-3">
+    <div className="mt-3 rounded-2xl bg-black/25 p-3.5">
       <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-white/5 p-1">
         <button
           onClick={() => setTool("timer")}
-          className={`rounded-lg py-1.5 text-xs font-medium ${
+          className={`rounded-lg py-2 text-sm font-medium ${
             tool === "timer" ? "bg-gold text-navy" : "text-white/55"
           }`}
         >
@@ -137,7 +137,7 @@ export default function ClockTools() {
         </button>
         <button
           onClick={() => setTool("stopwatch")}
-          className={`rounded-lg py-1.5 text-xs font-medium ${
+          className={`rounded-lg py-2 text-sm font-medium ${
             tool === "stopwatch" ? "bg-gold text-navy" : "text-white/55"
           }`}
         >
@@ -147,7 +147,7 @@ export default function ClockTools() {
 
       {tool === "timer" ? (
         <>
-          <div className={`clock text-center text-[44px] leading-none ${timerDone ? "text-[#F07167]" : "text-white"}`}>
+          <div className={`clock text-center text-[56px] leading-none ${timerDone ? "text-[#F07167]" : "text-white"}`}>
             {formatTool(timerLeft, false)}
           </div>
           <div className="mt-1 text-center text-[11px] text-white/40">
@@ -185,7 +185,7 @@ export default function ClockTools() {
         </>
       ) : (
         <>
-          <div className="clock text-center text-[44px] leading-none text-white">{formatTool(swMs, true)}</div>
+          <div className="clock text-center text-[56px] leading-none text-white">{formatTool(swMs, true)}</div>
           <div className="mt-1 text-center text-[11px] text-white/40">{swOn ? "running" : swMs ? "paused" : "tap start"}</div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <button onClick={toggleSw} className="rounded-xl bg-gold py-2 text-sm font-semibold text-navy">

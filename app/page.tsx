@@ -91,14 +91,14 @@ function resolveSchedule(
 }
 
 function Ring({ progress, urgent }: { progress: number; urgent: boolean }) {
-  const size = 236;
-  const stroke = 10;
+  const size = 100;
+  const stroke = 4.2;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.min(Math.max(progress, 0), 1));
   const color = urgent ? "#F07167" : "#D4AF37";
   return (
-    <svg width={size} height={size} className="clock-ring">
+    <svg viewBox={`0 0 ${size} ${size}`} className="clock-ring h-full w-full">
       <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
       <circle
         cx={size / 2}
@@ -294,7 +294,7 @@ export default function HomePage() {
   const hero = heroCopy({ phase, current, upcoming, live, schedule: resolved.schedule, now });
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg px-4 pb-16 pt-4">
+    <main className="mx-auto flex min-h-dvh max-w-xl flex-col px-4 pb-5 pt-3">
       <header className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <img src="/viking.png" alt="" className="h-8 w-8 object-contain" />
@@ -357,7 +357,7 @@ export default function HomePage() {
       </section>
       )}
 
-      <section className="glass relative mb-4 overflow-hidden rounded-[28px] px-5 pb-5 pt-5">
+      <section className="glass relative mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] px-4 pb-4 pt-4">
         {expanded && (
         <div className="mb-3 flex items-center justify-between text-xs">
           <span className="rounded-full bg-gold/15 px-2.5 py-1 font-medium text-gold">
@@ -374,27 +374,31 @@ export default function HomePage() {
         </div>
         )}
 
-        <div className="relative mx-auto grid place-items-center">
-          {current && live ? (
-            <>
-              <Ring progress={current.progress} urgent={urgent} />
-              <div className="absolute inset-0 grid place-items-center text-center">
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">{current.period.name}</div>
-                  <div className={`clock text-[72px] leading-none ${urgent ? "text-[#F07167]" : "text-white"}`}>
-                    {formatRemaining(current.remainingMs)}
+        <div className="grid min-h-[50dvh] flex-none place-items-center">
+          <div className="clock-face relative aspect-square w-full max-w-[min(94vw,50dvh)]">
+            {current && live ? (
+              <>
+                <Ring progress={current.progress} urgent={urgent} />
+                <div className="absolute inset-0 grid place-items-center text-center">
+                  <div className="px-4">
+                    <div className="clock-kicker uppercase text-white/45">{current.period.name}</div>
+                    <div className={`clock clock-num ${urgent ? "text-[#F07167]" : "text-white"}`}>
+                      {formatRemaining(current.remainingMs)}
+                    </div>
+                    <div className="clock-sub mt-1 text-white/50">
+                      left · ends {formatTime12h(current.period.end)}
+                    </div>
                   </div>
-                  <div className="mt-1 text-sm text-white/50">left · ends {formatTime12h(current.period.end)}</div>
                 </div>
+              </>
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center text-center">
+                <div className="clock-kicker uppercase text-white/45">{hero.kicker}</div>
+                <div className="clock clock-num">{hero.time}</div>
+                <div className="clock-sub mt-2 max-w-[16rem] text-white/50">{hero.sub}</div>
               </div>
-            </>
-          ) : (
-            <div className="flex h-[236px] w-[236px] flex-col items-center justify-center text-center">
-              <div className="text-[11px] uppercase tracking-[0.22em] text-white/45">{hero.kicker}</div>
-              <div className="clock mt-1 text-[56px] leading-none">{hero.time}</div>
-              <div className="mt-2 max-w-[200px] text-sm text-white/50">{hero.sub}</div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {expanded && upcoming && (

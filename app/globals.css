@@ -27,6 +27,24 @@ body {
   transform: rotate(-90deg);
 }
 
+.clock-face {
+  container-type: size;
+}
+
+.clock-num {
+  font-size: 28cqmin;
+  line-height: 0.9;
+}
+
+.clock-kicker {
+  font-size: 5.2cqmin;
+  letter-spacing: 0.2em;
+}
+
+.clock-sub {
+  font-size: 5.6cqmin;
+}
+
 .safe {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
