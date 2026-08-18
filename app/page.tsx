@@ -11,6 +11,7 @@ import {
   formatTime12h,
   getPreset,
   prettyDate,
+  weekdayLabel,
   withPassing,
 } from "@/lib/schedules";
 import {
@@ -27,8 +28,10 @@ import {
   AlertSettings,
   DEFAULT_SETTINGS,
   SpecialDay,
+  loadRunAs,
   loadSettings,
   loadSpecials,
+  saveRunAs,
   saveSettings,
   saveSpecials,
 } from "@/lib/storage";
@@ -59,11 +62,15 @@ const DAY_CHIPS: { id: PresetId; label: string }[] = [
 function resolveSchedule(
   viewDate: Date,
   specials: SpecialDay[],
-  override: PresetId | "auto"
+  runAs: PresetId | "auto"
 ): { schedule: DaySchedule; source: "special" | "preset" | "weekend"; special?: SpecialDay } {
   const key = dateKey(viewDate);
+  if (runAs !== "auto") {
+    const schedule = getPreset(runAs);
+    return { schedule, source: runAs === "weekend" ? "weekend" : "preset" };
+  }
   const special = specials.find((s) => s.date === key);
-  if (special && override === "auto") {
+  if (special) {
     return {
       schedule: {
         id: special.id,
@@ -76,7 +83,7 @@ function resolveSchedule(
       special,
     };
   }
-  const presetId = override === "auto" ? WEEKDAY_PRESET[viewDate.getDay()] : override;
+  const presetId = WEEKDAY_PRESET[viewDate.getDay()];
   return { schedule: getPreset(presetId), source: presetId === "weekend" ? "weekend" : "preset" };
 }
 
@@ -109,7 +116,7 @@ export default function HomePage() {
   const [now, setNow] = useState(() => new Date());
   const [specials, setSpecials] = useState<SpecialDay[]>([]);
   const [settings, setSettings] = useState<AlertSettings>(DEFAULT_SETTINGS);
-  const [override, setOverride] = useState<PresetId | "auto">("auto");
+  const [runAs, setRunAs] = useState<PresetId | "auto">("auto");
   const [editorOpen, setEditorOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -120,6 +127,7 @@ export default function HomePage() {
   useEffect(() => {
     setSpecials(loadSpecials());
     setSettings(loadSettings());
+    setRunAs(loadRunAs(dateKey(new Date())));
     if (typeof Notification !== "undefined") setPerm(Notification.permission);
     setStandalone(
       window.matchMedia("(display-mode: standalone)").matches ||
@@ -159,15 +167,34 @@ export default function HomePage() {
   }, [settings.enabled, settings.keepAwake]);
 
   const todayKey = dateKey(now);
-  const resolved = useMemo(() => resolveSchedule(now, specials, override), [now, specials, override]);
+  const calendarPreset = WEEKDAY_PRESET[now.getDay()];
+  const calendarLabel = weekdayLabel(now);
+
+  useEffect(() => {
+    setRunAs(loadRunAs(todayKey));
+  }, [todayKey]);
+
+  const chooseRunAs = useCallback(
+    (next: PresetId | "auto") => {
+      setRunAs(next);
+      saveRunAs(todayKey, next);
+      if (next === "auto") {
+        setToast(`Back to ${calendarLabel} bells`);
+      } else {
+        const label = getPreset(next).label;
+        setToast(`Today is running the ${label} schedule`);
+      }
+    },
+    [todayKey, calendarLabel]
+  );
+
+  const resolved = useMemo(() => resolveSchedule(now, specials, runAs), [now, specials, runAs]);
   const periods = useMemo(() => withPassing(resolved.schedule.periods), [resolved.schedule]);
   const states = useMemo(() => getPeriodStates(periods, now), [periods, now]);
-  const live = override === "auto" || WEEKDAY_PRESET[now.getDay()] === override || resolved.source === "special";
-  const current = live ? currentState(states) : undefined;
-  const upcoming = live
-    ? states.find((s) => s.status === "upcoming")
-    : states.find((s) => s.period.kind === "class") || states[0];
-  const phase = live ? getDayPhase(resolved.schedule, now) : "before";
+  const live = true;
+  const current = currentState(states);
+  const upcoming = states.find((s) => s.status === "upcoming");
+  const phase = getDayPhase(resolved.schedule, now);
 
   useEffect(() => {
     if (!live || !settings.enabled) return;
@@ -269,22 +296,56 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
-        <Chip active={override === "auto"} onClick={() => setOverride("auto")}>
-          Today
-        </Chip>
-        {DAY_CHIPS.map((d) => (
-          <Chip key={d.id} active={override === d.id} onClick={() => setOverride(d.id)}>
-            {d.label}
+      <section className="glass mb-4 rounded-[24px] p-3.5">
+        <label className="block">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-[0.18em] text-gold">Run today as</span>
+            <span className="text-[11px] text-white/40">
+              {calendarLabel}
+              {runAs !== "auto" ? ` · using ${resolved.schedule.label}` : ""}
+            </span>
+          </div>
+          <select
+            value={runAs}
+            onChange={(e) => chooseRunAs(e.target.value as PresetId | "auto")}
+            className="w-full rounded-2xl border border-white/10 bg-navy px-3 py-2.5 text-sm font-medium text-white"
+          >
+            <option value="auto">Auto — {calendarLabel} schedule</option>
+            {DAY_CHIPS.map((d) => (
+              <option key={d.id} value={d.id}>
+                {getPreset(d.id).label}
+                {d.id === calendarPreset ? " (calendar today)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5">
+          <Chip active={runAs === "auto"} onClick={() => chooseRunAs("auto")}>
+            Auto
           </Chip>
-        ))}
-      </div>
+          {DAY_CHIPS.map((d) => (
+            <Chip key={d.id} active={runAs === d.id} onClick={() => chooseRunAs(d.id)}>
+              {d.label}
+            </Chip>
+          ))}
+        </div>
+        {runAs !== "auto" && (
+          <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+            Countdown and alerts follow {resolved.schedule.label} bells, even though it is {calendarLabel}. Resets
+            tomorrow.
+          </p>
+        )}
+      </section>
 
       <section className="glass relative mb-4 overflow-hidden rounded-[28px] px-5 pb-6 pt-5">
         <div className="mb-3 flex items-center justify-between text-xs">
           <span className="rounded-full bg-gold/15 px-2.5 py-1 font-medium text-gold">
             {resolved.schedule.label}
-            {resolved.source === "special" ? " · special" : live ? " · live" : " · preview"}
+            {runAs !== "auto"
+              ? ` · ${calendarLabel} running as this`
+              : resolved.source === "special"
+                ? " · special"
+                : " · live"}
           </span>
           {resolved.schedule.note && (
             <span className="hidden max-w-[55%] text-right text-white/40 sm:inline">{resolved.schedule.note}</span>
@@ -313,27 +374,6 @@ export default function HomePage() {
             </div>
           )}
         </div>
-
-        {!live && override !== "weekend" && (
-          <button
-            onClick={() => {
-              const preset = getPreset(override);
-              const next: SpecialDay = {
-                id: `today-${todayKey}`,
-                date: todayKey,
-                name: preset.label,
-                basedOn: override,
-                periods: preset.periods.map((p) => ({ ...p })),
-              };
-              persistSpecials([...specials.filter((s) => s.date !== todayKey), next]);
-              setOverride("auto");
-              setToast(`${preset.label} is now today's schedule`);
-            }}
-            className="mb-3 w-full rounded-2xl bg-gold py-2.5 text-sm font-semibold text-navy"
-          >
-            Use {resolved.schedule.label} as today
-          </button>
-        )}
 
         {upcoming && (
           <div className="mt-2 rounded-2xl bg-black/25 px-4 py-3 text-sm">
@@ -440,7 +480,8 @@ export default function HomePage() {
           </button>
         </div>
         <p className="mb-3 text-[11px] text-white/35">
-          Mon–Fri plus minimum and assembly are built in. Add a special if the school changes the day.
+          Pick “Run today as” when school follows a different day’s bells (for example Monday on a Tuesday with no
+          tutorial). Add a special if the times themselves change.
         </p>
         {periods.length === 0 ? (
           <div className="glass rounded-2xl px-4 py-8 text-center text-sm text-white/50">No school today.</div>

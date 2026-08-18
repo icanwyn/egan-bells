@@ -3,6 +3,7 @@ import { Period, PresetId } from "./schedules";
 const SPECIALS_KEY = "egan-bells-specials-v1";
 const SETTINGS_KEY = "egan-bells-settings-v1";
 const FIRED_KEY = "egan-bells-fired-v1";
+const RUN_AS_KEY = "egan-bells-run-as-v1";
 
 export interface SpecialDay {
   id: string;
@@ -98,4 +99,35 @@ export function markFired(id: string) {
 
 export function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const RUN_AS_PRESETS: PresetId[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "minimum",
+  "assembly",
+  "weekend",
+];
+
+export function loadRunAs(today: string): PresetId | "auto" {
+  try {
+    const raw = readStore(RUN_AS_KEY);
+    if (!raw) return "auto";
+    const saved = JSON.parse(raw) as { date?: string; preset?: string };
+    if (saved.date !== today) return "auto";
+    if (saved.preset === "auto") return "auto";
+    if (saved.preset && RUN_AS_PRESETS.includes(saved.preset as PresetId)) {
+      return saved.preset as PresetId;
+    }
+    return "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+export function saveRunAs(today: string, preset: PresetId | "auto") {
+  writeStore(RUN_AS_KEY, JSON.stringify({ date: today, preset }));
 }
